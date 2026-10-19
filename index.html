@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Good Fox — Crafts Atelier</title>
+<meta name="description" content="Makers & Craftsmen Crafts Atelier — Good Fox hero with cursor-path dark-twin reveal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --front: #29a3f4;
+    --back: #ff0a8c;
+    --ink: #ffffff;
+    --gutter: clamp(16px, 2.2vw, 32px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--front);
+    color: var(--ink);
+    font-family: "Space Mono", ui-monospace, monospace;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .hero {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+    background: var(--front);
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .hero canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; overflow: hidden;
+    clip: rect(0 0 0 0); white-space: nowrap;
+  }
+
+  /* ---------- UI chrome ---------- */
+  .ui {
+    position: absolute;
+    z-index: 3;
+    font-size: 12px;
+    line-height: 1.6;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    pointer-events: none;
+    text-shadow: 0 0 1px rgba(255,255,255,.35);
+  }
+  .ui > * { pointer-events: auto; }
+  .ui-tl { top: var(--gutter); left: var(--gutter); }
+  .ui-tr { top: var(--gutter); right: var(--gutter); text-align: right; }
+  .ui-bl { bottom: var(--gutter); left: var(--gutter); }
+
+  .sound {
+    display: inline-flex; align-items: center; gap: 14px;
+    background: none; border: 0; color: inherit; font: inherit;
+    letter-spacing: inherit; text-transform: inherit; cursor: pointer;
+    padding: 4px 0;
+  }
+  .sound svg { width: 26px; height: 22px; flex: none; }
+  .sound .wave { display: none; }
+  .sound[aria-pressed="true"] .wave { display: block; }
+  .sound[aria-pressed="true"] .mute { display: none; }
+  .sound:focus-visible { outline: 1px dashed #fff; outline-offset: 4px; }
+
+  .dash { display: block; width: 26px; height: 2px; background: currentColor; margin-bottom: 18px; }
+
+  .loader {
+    position: absolute; inset: 0; z-index: 4;
+    display: grid; place-items: center;
+    background: var(--front);
+    font-size: 11px; letter-spacing: .3em; text-transform: uppercase;
+    transition: opacity .8s ease, visibility .8s;
+  }
+  .loader.done { opacity: 0; visibility: hidden; }
+
+  @media (max-width: 640px) {
+    .ui { font-size: 10px; letter-spacing: .12em; }
+    .sound { gap: 10px; }
+    .sound svg { width: 22px; height: 18px; }
+    .dash { width: 22px; margin-bottom: 12px; }
+  }
+</style>
+</head>
+<body>
+<main class="hero" id="hero">
+  <h1 class="sr-only">Good Fox — Makers &amp; Craftsmen Crafts Atelier</h1>
+  <canvas id="view" role="img" aria-label="A pale winged fox with a halo and gold cross; dragging the mouse unveils its dark twin, an ink fox with a pink cross on neon pink."></canvas>
+
+  <div class="ui ui-tl">
+    <button class="sound" id="sound" type="button" aria-pressed="false">
+      <svg viewBox="0 0 26 22" fill="none" aria-hidden="true">
+        <path d="M2 8h4l6-5v16l-6-5H2z" fill="currentColor"/>
+        <g class="mute" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M17 13l5 5M22 13l-5 5"/>
+        </g>
+        <g class="wave" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none">
+          <path d="M16 7.5a5 5 0 0 1 0 7"/><path d="M19 4.5a9 9 0 0 1 0 13"/>
+        </g>
+      </svg>
+      <span id="soundLabel">Audio off</span>
+    </button>
+  </div>
+
+  <div class="ui ui-tr">Makers &amp; Craftsmen<br>Crafts Atelier</div>
+
+  <div class="ui ui-bl"><span class="dash"></span>Workshop Formation<br>Akin to an Arts Guild</div>
+
+  <div class="loader" id="loader">Opening</div>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // Assets generated with Higgsfield (background-removed cutouts, 1024x1024, aligned).
+  const ASSETS = {
+    front: "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261019_144902_95c42d4b-a268-49cb-82c6-5c7688018feb.png",
+    back:  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261019_144904_f862cff1-c396-4e6e-91ed-1b5b0eb085a7.png"
+  };
+  const COLORS = { front: "#29a3f4", back: "#ff0a8c", textFront: "#ffffff", textBack: "#fff4f9" };
+  const WORDS = ["GOOD", "FOX"];
+  const FONT = "Anton";
+
+  const hero = document.getElementById("hero");
+  const view = document.getElementById("view");
+  const loader = document.getElementById("loader");
+
+  // ---------- sound toggle (UI only) ----------
+  const soundBtn = document.getElementById("sound");
+  soundBtn.addEventListener("click", () => {
+    const on = soundBtn.getAttribute("aria-pressed") !== "true";
+    soundBtn.setAttribute("aria-pressed", String(on));
+    document.getElementById("soundLabel").textContent = on ? "Audio on" : "Audio off";
+  });
+
+  // ---------- helpers ----------
+  const mk = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+  const loadImg = src => new Promise((res, rej) => {
+    const i = new Image(); i.crossOrigin = "anonymous"; i.decoding = "async";
+    i.onload = () => res(i); i.onerror = rej; i.src = src;
+  });
+  const mulberry = seed => () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+  // ---------- state ----------
+  let w = 0, h = 0, dpr = 1, W = 0, H = 0;
+  let imgs = null;
+  let layout = null;
+  let comp, cctx, bufB, bctx, textA, tactxA, textB, tactxB, staticA;
+  let maskCv, maskCtx, maskData, glowCv, glowCtx, glowData, field, mw, mh, maskScale;
+  let parts = null, cs = 4, burstR = 100, textBox = null;
+  const active = [];
+  const slices = [];
+  let maskMax = 0;
+
+  const ptr = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, on: false, stampX: null, stampY: null };
+
+  // ---------- layout ----------
+  function computeLayout() {
+    const portrait = h > w * 1.1;
+    const m = cctx; // any 2d ctx works for measuring
+    m.font = `400 100px ${FONT}`;
+    const wGood = m.measureText(WORDS[0]).width / 100;
+    const wFox = m.measureText(WORDS[1]).width / 100;
+    let L = { portrait };
+
+    if (!portrait) {
+      const s = Math.min(h * 1.02, w * 0.62);
+      L.img = { x: (w - s) / 2, y: h - s * 0.98, s };
+      const gap = s * 0.15;
+      const avail = w / 2 - gap - w * 0.035;
+      let fs = Math.min(avail / wGood, h * 0.46);
+      L.fs = fs;
+      const cy = L.img.y + s * 0.36;
+      L.words = [
+        { t: WORDS[0], x: w / 2 - gap, y: cy, align: "right" },
+        { t: WORDS[1], x: w / 2 + gap, y: cy, align: "left" }
+      ];
+    } else {
+      const s = Math.min(w * 1.18, h * 0.64);
+      L.img = { x: (w - s) / 2, y: h - s, s };
+      let fs = Math.min((w * 0.9) / wGood, h * 0.2);
+      L.fs = fs;
+      m.font = `400 ${fs}px ${FONT}`;
+      const mt = m.measureText("GOODFOX");
+      const capH = mt.actualBoundingBoxAscent + mt.actualBoundingBoxDescent;
+      const top = Math.max(70, h * 0.09);
+      const bottom = L.img.y + s * 0.2;
+      const lead = capH * 1.06;
+      const mid = (top + bottom) / 2;
+      L.words = [
+        { t: WORDS[0], x: w / 2, y: mid - lead / 2, align: "center" },
+        { t: WORDS[1], x: w / 2, y: mid + lead / 2, align: "center" }
+      ];
+    }
+    return L;
+  }
+
+  // ---------- static text layers ----------
+  function drawWords(ctx) {
+    ctx.fillStyle = "#fff";
+    ctx.font = `400 ${layout.fs * dpr}px ${FONT}`;
+    ctx.textBaseline = "alphabetic";
+    for (const wd of layout.words) {
+      const mt = ctx.measureText(wd.t);
+      const asc = mt.actualBoundingBoxAscent, desc = mt.actualBoundingBoxDescent;
+      ctx.textAlign = wd.align;
+      ctx.fillText(wd.t, wd.x * dpr, wd.y * dpr + (asc - desc) / 2);
+    }
+  }
+
+  function buildText() {
+    staticA = mk(W, H);
+    const sa = staticA.getContext("2d");
+    drawWords(sa);
+
+    // sample into pixel particles
+    cs = Math.max(3, Math.round(layout.fs * dpr / 46));
+    const img = sa.getImageData(0, 0, W, H).data;
+    const gw = Math.ceil(W / cs), gh = Math.ceil(H / cs);
+    const occ = new Uint8Array(gw * gh);
+    const hx = [], hy = [];
+    let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+    for (let gy = 0; gy < gh; gy++) {
+      const py = Math.min(H - 1, gy * cs + (cs >> 1));
+      for (let gx = 0; gx < gw; gx++) {
+        const px = Math.min(W - 1, gx * cs + (cs >> 1));
+        if (img[(py * W + px) * 4 + 3] > 110) {
+          occ[gy * gw + gx] = 1;
+          hx.push(gx * cs + cs / 2); hy.push(gy * cs + cs / 2);
+          if (px < x0) x0 = px; if (px > x1) x1 = px;
+          if (py < y0) y0 = py; if (py > y1) y1 = py;
+        }
+      }
+    }
+    textBox = { x0: x0 - cs * 8, y0: y0 - cs * 4, x1: x1 + cs * 8, y1: y1 + cs * 4 };
+    const n = hx.length;
+    const rnd = mulberry(7);
+    parts = {
+      n,
+      hx: Float32Array.from(hx), hy: Float32Array.from(hy),
+      ox: new Float32Array(n), oy: new Float32Array(n),
+      vx: new Float32Array(n), vy: new Float32Array(n),
+      d: new Float32Array(n), r: Float32Array.from({ length: n }, () => rnd()),
+      on: new Uint8Array(n)
+    };
+
+  }
+
+  // ---------- trail mask (JS field -> low-res canvas) ----------
+  function buildMask() {
+    maskScale = 5;
+    mw = Math.ceil(w / maskScale); mh = Math.ceil(h / maskScale);
+    field = new Float32Array(mw * mh);
+    maskCv = mk(mw, mh); maskCtx = maskCv.getContext("2d");
+    glowCv = mk(mw, mh); glowCtx = glowCv.getContext("2d");
+    maskData = maskCtx.createImageData(mw, mh);
+    glowData = glowCtx.createImageData(mw, mh);
+    for (let i = 0; i < mw * mh; i++) {
+      maskData.data[i * 4] = maskData.data[i * 4 + 1] = maskData.data[i * 4 + 2] = 255;
+      glowData.data[i * 4] = glowData.data[i * 4 + 1] = glowData.data[i * 4 + 2] = 255;
+    }
+    ptr.stampX = null;
+  }
+
+  function stamp(x, y, r, amt) {
+    const fx = x / maskScale, fy = y / maskScale, fr = r / maskScale;
+    const xa = Math.max(0, fx - fr | 0), xb = Math.min(mw - 1, fx + fr | 0);
+    const ya = Math.max(0, fy - fr | 0), yb = Math.min(mh - 1, fy + fr | 0);
+    const inv = 1 / (fr * fr * 0.42);
+    for (let yy = ya; yy <= yb; yy++) {
+      const dy = yy - fy;
+      for (let xx = xa; xx <= xb; xx++) {
+        const dx = xx - fx;
+        const g = Math.exp(-(dx * dx + dy * dy) * inv);
+        if (g < 0.01) continue;
+        const i = yy * mw + xx;
+        field[i] += g * amt * (1.05 - field[i]);
+      }
+    }
+  }
+
+  function updateMask(dt) {
+    const k = dt * 60;
+    // stamp along the pointer path
+    if (ptr.on) {
+      const spd = Math.hypot(ptr.vx, ptr.vy);
+      const r = Math.min(w, h) * (layout.portrait ? 0.2 : 0.14) * (1 + Math.min(spd, 40) / 40 * 0.55);
+      if (ptr.stampX === null) { ptr.stampX = ptr.x; ptr.stampY = ptr.y; }
+      const dx = ptr.x - ptr.stampX, dy = ptr.y - ptr.stampY;
+      const dist = Math.hypot(dx, dy);
+      const step = r * 0.22;
+      if (dist >= step) {
+        const nSteps = Math.min(40, Math.floor(dist / step));
+        for (let i = 1; i <= nSteps; i++) {
+          stamp(ptr.stampX + dx * i / nSteps, ptr.stampY + dy * i / nSteps, r, 0.28);
+        }
+        ptr.stampX = ptr.x; ptr.stampY = ptr.y;
+      }
+    } else {
+      ptr.stampX = null;
+    }
+
+    const decay = Math.pow(0.958, k), sub = 0.0035 * k;
+    const md = maskData.data, gd = glowData.data;
+    let mx = 0;
+    for (let i = 0, n = field.length; i < n; i++) {
+      let v = field[i];
+      if (v > 0) { v = v * decay - sub; if (v < 0) v = 0; field[i] = v; }
+      if (v > mx) mx = v;
+      md[i * 4 + 3] = smooth(0.1, 0.42, v) * 255;
+      gd[i * 4 + 3] = smooth(0.02, 0.12, v) * (1 - smooth(0.12, 0.38, v)) * 230;
+    }
+    maskMax = mx;
+    maskCtx.putImageData(maskData, 0, 0);
+    glowCtx.putImageData(glowData, 0, 0);
+  }
+
+  // ---------- pixel particles (text disintegrate) ----------
+  function updateParticles(dt) {
+    const P = parts, n = P.n, k = dt * 60;
+    const px = ptr.x * dpr, py = ptr.y * dpr, R = burstR, R2 = R * R;
+    const spd = Math.hypot(ptr.vx, ptr.vy);
+    const moving = ptr.on && spd > 0.25;
+    const sp = Math.min(spd, 35) / 35;
+    const damp = Math.pow(0.9, k);
+    const life = dt / 0.85;
+    const nvx = spd > 0 ? ptr.vx / spd : 0, nvy = spd > 0 ? ptr.vy / spd : 0;
+    active.length = 0;
+
+    for (let i = 0; i < n; i++) {
+      if (moving) {
+        const dx = P.hx[i] - px;
+        if (dx > -R && dx < R) {
+          const dy = P.hy[i] - py;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < R2) {
+            const dist = Math.sqrt(d2) + 0.001;
+            const f = 1 - dist / R;
+            P.d[i] = Math.min(1, Math.max(P.d[i], f * (0.9 + sp)));
+            const imp = f * dpr * (0.35 + sp * 1.4);
+            const turb = (P.r[i] - 0.5) * 2;
+            P.vx[i] += (dx / dist) * imp * 2.2 + nvx * imp * 3.2 + imp * 0.8 + turb * imp * 2.4;
+            P.vy[i] += (dy / dist) * imp * 2.2 + nvy * imp * 3.2 - imp * 0.6 + (Math.random() - 0.5) * imp * 3;
+            P.on[i] = 1;
+          }
+        }
+      }
+      if (!P.on[i]) continue;
+      const d = P.d[i];
+      // turbulence + drift while dissolved, spring home as it recovers
+      P.vx[i] += (Math.random() - 0.5) * d * 0.5 * dpr * k;
+      P.vy[i] += ((Math.random() - 0.5) * 0.5 - 0.05) * d * dpr * k;
+      const spring = 0.075 * (1 - d) * (1 - d) * k;
+      P.vx[i] = (P.vx[i] - P.ox[i] * spring) * damp;
+      P.vy[i] = (P.vy[i] - P.oy[i] * spring) * damp;
+      P.ox[i] += P.vx[i] * k;
+      P.oy[i] += P.vy[i] * k;
+      P.d[i] = d > life ? d - life : 0;
+      if (P.d[i] === 0 && Math.abs(P.ox[i]) < 0.35 && Math.abs(P.oy[i]) < 0.35 && Math.abs(P.vx[i]) < 0.08 && Math.abs(P.vy[i]) < 0.08) {
+        P.ox[i] = P.oy[i] = P.vx[i] = P.vy[i] = 0; P.on[i] = 0;
+      } else {
+        active.push(i);
+      }
+    }
+
+    // horizontal slice glitches when sweeping fast across the words
+    if (moving && spd > 6 && py > textBox.y0 && py < textBox.y1 && px > textBox.x0 && px < textBox.x1 && Math.random() < 0.6) {
+      const cnt = 1 + (Math.random() * 2 | 0);
+      for (let j = 0; j < cnt; j++) {
+        const sh = cs * (0.5 + Math.random() * 3);
+        slices.push({
+          y: py + (Math.random() - 0.5) * R * 1.6,
+          h: sh,
+          x: px - R * 1.4, w: R * 2.8,
+          shift: Math.sign(ptr.vx || 1) * cs * (2 + Math.random() * 12),
+          life: 0.08 + Math.random() * 0.22
+        });
+      }
+    }
+    for (let j = slices.length - 1; j >= 0; j--) {
+      slices[j].life -= dt;
+      if (slices[j].life <= 0) slices.splice(j, 1);
+    }
+  }
+
+  function renderText(ctx, src, color) {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(src, 0, 0);
+    const P = parts, half = cs / 2;
+    for (let a = 0; a < active.length; a++) {
+      const i = active[a];
+      ctx.clearRect(P.hx[i] - half, P.hy[i] - half, cs, cs);
+    }
+    ctx.fillStyle = color;
+    for (let a = 0; a < active.length; a++) {
+      const i = active[a], d = P.d[i];
+      if (d > 0.7 && P.r[i] > 0.82) continue;          // some pixels blink out entirely
+      const sz = cs * (1 - d * (0.55 - 0.45 * P.r[i]));
+      const stretch = 1 + Math.min(Math.abs(P.vx[i]) / dpr * 0.35, 3.5) * (d + 0.15);
+      ctx.globalAlpha = 1 - d * 0.5;
+      const x = P.hx[i] + P.ox[i], y = P.hy[i] + P.oy[i];
+      ctx.fillRect(x - sz / 2 - (P.vx[i] < 0 ? sz * (stretch - 1) : 0), y - sz / 2, sz * stretch, sz);
+    }
+    ctx.globalAlpha = 1;
+    for (const s of slices) {
+      ctx.clearRect(s.x, s.y, s.w, s.h);
+      ctx.drawImage(src, s.x, s.y, s.w, s.h, s.x + s.shift, s.y, s.w, s.h);
+    }
+  }
+
+  // ---------- scene drawing ----------
+  function drawHalo(ctx, t) {
+    const L = layout.img;
+    const s = L.s * dpr;
+    const cx = (L.x + L.s * 0.5) * dpr;
+    const cy = (L.y + L.s * 0.046) * dpr + Math.sin(t * 1.6) * s * 0.006;
+    const rx = s * 0.148, ry = s * 0.026;
+    ctx.save();
+    ctx.lineWidth = Math.max(2, s * 0.0085);
+    ctx.shadowColor = "rgba(255, 214, 110, 0.95)";
+    ctx.shadowBlur = s * 0.03;
+    const g = ctx.createLinearGradient(cx - rx, cy, cx + rx, cy);
+    g.addColorStop(0, "#f5c24a"); g.addColorStop(0.5, "#fff3c2"); g.addColorStop(1, "#f0b93c");
+    ctx.strokeStyle = g;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.shadowBlur = s * 0.012; ctx.lineWidth = Math.max(1, s * 0.003);
+    ctx.strokeStyle = "rgba(255,255,240,.9)"; ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFox(ctx, img) {
+    const L = layout.img;
+    ctx.drawImage(img, L.x * dpr, L.y * dpr, L.s * dpr, L.s * dpr);
+  }
+
+  function compose(t) {
+    // front: white angel fox on blue
+    cctx.globalCompositeOperation = "source-over";
+    cctx.fillStyle = COLORS.front; cctx.fillRect(0, 0, W, H);
+    cctx.drawImage(textA, 0, 0);
+    drawFox(cctx, imgs.front);
+    drawHalo(cctx, t);
+
+    if (maskMax > 0.06) {
+      // back: black fox on pink, cut by the trail mask
+      bctx.globalCompositeOperation = "source-over";
+      bctx.fillStyle = COLORS.back; bctx.fillRect(0, 0, W, H);
+      bctx.drawImage(textB, 0, 0);
+      drawFox(bctx, imgs.back);
+      bctx.globalCompositeOperation = "destination-in";
+      bctx.imageSmoothingEnabled = true;
+      bctx.drawImage(maskCv, 0, 0, W, H);
+      bctx.globalCompositeOperation = "source-over";
+      cctx.drawImage(bufB, 0, 0);
+      // soft luminous fringe on the reveal edge
+      cctx.globalCompositeOperation = "screen";
+      cctx.globalAlpha = 0.7;
+      cctx.drawImage(glowCv, 0, 0, W, H);
+      cctx.globalAlpha = 1;
+      cctx.globalCompositeOperation = "source-over";
+    }
+  }
+
+  // ---------- sizing ----------
+  function resize() {
+    w = hero.clientWidth || window.innerWidth; h = hero.clientHeight || window.innerHeight;
+    if (!w || !h) { setTimeout(resize, 100); return; }
+    const maxPx = w < 760 ? 2.4e6 : 3.4e6;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (w * h * dpr * dpr > maxPx) dpr = Math.sqrt(maxPx / (w * h));
+    W = Math.round(w * dpr); H = Math.round(h * dpr);
+
+    view.width = W; view.height = H;
+    comp = view; cctx = view.getContext("2d");
+    bufB = mk(W, H); bctx = bufB.getContext("2d");
+    textA = mk(W, H); tactxA = textA.getContext("2d");
+    textB = mk(W, H); tactxB = textB.getContext("2d");
+
+    layout = computeLayout();
+    burstR = layout.fs * dpr * (layout.portrait ? 0.5 : 0.42);
+    buildText();
+    buildMask();
+    slices.length = 0;
+  }
+
+  // ---------- input ----------
+  function setPointer(x, y) {
+    const r = hero.getBoundingClientRect();
+    ptr.x = x - r.left; ptr.y = y - r.top;
+    ptr.on = true;
+  }
+  hero.addEventListener("pointermove", e => {
+    const entering = !ptr.on;
+    setPointer(e.clientX, e.clientY);
+    if (entering) { ptr.px = ptr.x; ptr.py = ptr.y; ptr.stampX = null; }  // no jump on re-entry
+  }, { passive: true });
+  hero.addEventListener("pointerdown", e => {
+    setPointer(e.clientX, e.clientY);
+    ptr.px = ptr.x; ptr.py = ptr.y; ptr.stampX = null;
+  }, { passive: true });
+  hero.addEventListener("pointerleave", () => { ptr.on = false; });
+  hero.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") ptr.on = false; });
+
+  // ---------- loop ----------
+  let last = performance.now(), t0 = last;
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!parts) { requestAnimationFrame(frame); return; }
+    // pointer velocity (css px / frame), smoothed
+    const k = dt * 60 || 1;
+    ptr.vx += ((ptr.x - ptr.px) / k - ptr.vx) * 0.5;
+    ptr.vy += ((ptr.y - ptr.py) / k - ptr.vy) * 0.5;
+    ptr.px = ptr.x; ptr.py = ptr.y;
+
+    const t = (now - t0) / 1000;
+    updateMask(dt);
+    updateParticles(dt);
+    renderText(tactxA, staticA, COLORS.textFront);
+    if (maskMax > 0.06) renderText(tactxB, staticA, COLORS.textBack);
+    compose(t);
+    requestAnimationFrame(frame);
+  }
+
+  // ---------- boot ----------
+  let rt;
+  window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(resize, 120); });
+
+  Promise.all([
+    loadImg(ASSETS.front), loadImg(ASSETS.back),
+    document.fonts ? document.fonts.load(`400 100px ${FONT}`) : Promise.resolve()
+  ]).then(([front, back]) => {
+    imgs = { front, back };
+    resize();
+    loader.classList.add("done");
+    requestAnimationFrame(t => { last = t; t0 = t; frame(t); });
+  }).catch(err => {
+    console.error(err);
+    loader.textContent = "Unable to fetch media";
+  });
+})();
+</script>
+</body>
+</html>
